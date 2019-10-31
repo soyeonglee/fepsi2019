@@ -88,7 +88,7 @@ while N:
 
 
     
-average = sum(PV)*1.11 #도출된 pv를 average, variance 변수에 각 차례마다 합산
+average = sum(PV*1.11) #도출된 pv를 average, variance 변수에 각 차례마다 합산
 variance=sum(PV**2)*(1.11**2)
 MC_a=float(average/M);
 MC_v=variance/M-(MC_a**2)
