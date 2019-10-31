@@ -1,0 +1,102 @@
+import numpy as np
+
+N = 1000
+M = 1000
+rf = 0.015
+n = 250
+dt = 1/n
+
+T = 3
+t = 0.5
+
+vol1 = 0.1920
+vol2 = 0.2170
+vol3 = 0.2011
+
+cov12 = 0.3498
+cov23 = 0.2945
+cov31 = 0.6397
+
+C = [0.0275,0.055,0.825,0.11,0.1375,0.165]
+
+EB = [0.90,0.90,0.85,0.85,0.80,0.75]
+
+KB = 0.55
+
+knockin_count = 0
+knockin_list = [0,0,0,0,0,0,0]
+
+S1 = np.append(np.array([1]), np.zeros(T*n))
+
+S2 = np.append(np.array([1]), np.zeros(T*n))
+
+S3 = np.append(np.array([1]), np.zeros(T*n))
+
+PV = np.zeros(N)
+
+
+while N:
+    early_check = 0
+    knockin_check = 0
+    
+    X1 = np.random.standard_normal(T*n)
+    X2 = cov12 * X1 + np.sqrt(1-cov12**2)*np.random.standard_normal(T*n)
+    
+    a = cov23 * X1
+    b = ((cov31 - cov12 * cov23 )/np.sqrt(1-cov12**2)) * X2 
+    c = np.sqrt(1-cov31**2-(((cov31 - cov12 * cov23 )**2)/(1-cov12**2)))*np.random.standard_normal(T*n)
+    
+    X3 = a + b + c
+    
+    for i in range(int(T*n)):
+        S1[i+1] = S1[i]*np.exp((rf-0.5*(vol1**2))*dt+vol1*np.sqrt(dt)*X1[i])
+        S2[i+1] = S2[i]*np.exp((rf-0.5*(vol2**2))*dt+vol2*np.sqrt(dt)*X2[i])
+        S3[i+1] = S3[i]*np.exp((rf-0.5*(vol3**2))*dt+vol3*np.sqrt(dt)*X3[i])
+        
+        
+    for i in range(int(n*t),T*n+1,int(n/t)):
+        
+        j = int(i/int(n*t)-1)
+        
+        if ((float(S1[i]) >= EB[j]) and (float(S2[i]) >= EB[j]) and (float(S3[i]) >= EB[j])):
+            PV[int(M-N)] = 1*(1+C[j])*np.exp(-rf*(j+1)*t)
+            early_check = 1
+            knockin_list[j] =  knockin_list[j] + 1
+            break
+            
+    if early_check == 0:
+        j = int(T/t-1)
+        if (float(S1[T*n]) >= EB[j] and (float(S2[T*n]) >= EB[j]) and (float(S3[T*n]) >= EB[j])):
+            PV[int(M-N)] = 1*(1+C[j])*np.exp(-rf*(j+1)*t)
+        knockin_list[j] = knockin_list[j] +1
+        
+    else:
+        for i in range(T*n+1):
+            if (float(S1[i]) < KB or float(S2[i])<KB or float(S3[i])<KB):
+                knockin_check = 1
+                knockin_count += knockin_check
+                break
+
+        if (knockin_check == 1): 
+            j = int(T/t-1)
+            PV[int(M-N)]=min(S1[int(T*n)],S2[int(T*n)], S3[int(T*n)])*np.exp(-rf*(j+1)*t)
+        else:
+            PV[int(M-N)]=(1+C[j])*np.exp(-rf*(j+1)*t)
+            knockin_list[-1] = knockin_list[-1] +1
+    
+    N -= 1
+
+
+    
+average = sum(PV)*1.11 #도출된 pv를 average, variance 변수에 각 차례마다 합산
+variance=sum(PV**2)*(1.11**2)
+MC_a=float(average/M);
+MC_v=variance/M-(MC_a**2)
+std=np.sqrt(MC_v)
+print(std)
+p=MC_a-2.58*std/np.sqrt(M);
+q=MC_a+2.58*std/np.sqrt(M);
+print("MC방법을 통해 구한 1원 대비 ELS 공정가치의 평균값은")
+print(str(round(MC_a,5))+"입니다.")
+print("99% 신뢰구간은")
+print(str(round(p,5))+"부터"+str(round(q,5))+"까지"+"입니다.")
